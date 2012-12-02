@@ -101,7 +101,7 @@ function glslify(path, module_id, mappings, define_in_parent_scope, registry, co
   }
 
   function perform_mangle(ident) {
-    return module_id + '_x_' + ident
+    return (module_id + '_x_' + ident).replace(/__/g, '_')
   }
 
   function handle_import(node, ready) {
@@ -129,7 +129,15 @@ function glslify(path, module_id, mappings, define_in_parent_scope, registry, co
     bits = bits.reduce(function(l, r) {
       r = r.split('=').map(function(x) { return x.replace(/(^\s*|\s*$)/g, '') })
 
-      l[r[0]] = current.scope[r[1]]
+      r[1] = r[1] + ';'
+      var token_stream = tokenizer()
+        , sub_parser_stream = token_stream.pipe(parser())
+
+      sub_parser_stream.scope(parser_stream.scope())
+      token_stream.write(r[1])
+
+      l[r[0]] = sub_parser_stream.program.children[0].children[0].children[0]
+
       return l
     }, Object.create(mappings))
 
