@@ -1,4 +1,4 @@
-# glslify
+# glslify-stream
 
 given a file path, create a readable stream of [glsl-parser](https://github.com/chrisdickinson/glsl-parser) AST nodes that represent the complete dependency tree of a glsl program.
 
