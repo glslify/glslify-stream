@@ -186,9 +186,14 @@ function any(x, n) {
 
 function locate_module(current_path, module_name, ready) {
   if(module_name[0] === '.') return relative_module(current_path, module_name, ready)
+  if(module_name[0] === '/') return ready(null, module_name)
 
   var dirname = Path.dirname(current_path)
-    , node_modules = Path.join(dirname, 'node_modules', module_name)
+    , bits = module_name.split(Path.sep)
+
+  module_name = bits[0]
+
+  var node_modules = Path.join(dirname, 'node_modules', module_name)
     , package_json
     , main_file
 
@@ -201,7 +206,13 @@ function locate_module(current_path, module_name, ready) {
       package_json = {main: './index.glsl'}
     }
 
+    if(bits.length > 1) {
+      package_json.glslify = Path.join.apply(Path, ['.'].concat(bits.slice(1)))
+    }
     main_file = package_json.glslify || package_json.main || './index.glsl'
+
+    if(Path.extname(main_file) !== '.glsl')
+      main_file += '.glsl'
 
     return ready(null, Path.join(node_modules, main_file)) 
   }
