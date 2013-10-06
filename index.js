@@ -1,6 +1,9 @@
-module.exports = function(path) { return glslify(path) }
+module.exports = function(path, input_stream) { return glslify(path, !!input_stream) }
 
-var through = require('through')
+var combine = require('stream-combiner')
+  , commondir = require('commondir')
+  , wrap = require('wrap-stream')
+  , through = require('through')
 
 var Path = require('path')
   , fs = require('fs')
@@ -23,28 +26,49 @@ var remove_stmt = [
 
 var shortest = require('shortest')
 
-function glslify(path, module_id, mappings, define_in_parent_scope, registry, counter) {
+function glslify(path, is_input, base, module_id, mappings, define_in_parent_scope, registry, counter) {
   // "should mangle" and "should remove storagedecl" are implied by presence of mappings
   module_id = module_id || '.'
+  base = base || Path.dirname(path)
 
   var is_root = !mappings
     , stream = through(process)
     , this_level = Object.create(null)
     , parser_stream = parser()
     , token_stream = tokenizer()
+    , common = commondir([base, Path.dirname(path)])
+    , in_node_modules = path.replace(common, '').indexOf('node_modules') !== -1
+    , prefix = ''
+    , suffix = ''
 
   mappings = mappings || {}
   registry = registry || {}
   counter = counter || shortest()
 
-  fs.createReadStream(path)
-    .pipe(token_stream)
-    .pipe(parser_stream)
-    .pipe(stream)
+  var input_stream = is_input
+    ? through()
+    : fs.createReadStream(path)
 
-  if(module_id === '.') token_stream.write('#define GLSLIFY 1\n\n\n')
+  if(module_id === '.') {
+    prefix += '#define GLSLIFY 1\n\n\n'
+  } else {
+    suffix += '#pragma glslify_file close\n'
+    prefix += '#pragma glslify_file start'
+    if(in_node_modules) {
+      prefix += ' module'
+    }
+    prefix += '\n'
+  }
 
-  return stream
+  var output_stream = combine(
+      input_stream
+    , wrap(prefix, suffix)
+    , token_stream
+    , parser_stream
+    , stream
+  )
+
+  return output_stream
 
   function process(node) {
     if(node.ignore) return
@@ -72,19 +96,19 @@ function glslify(path, module_id, mappings, define_in_parent_scope, registry, co
     if(module_id !== '.') {
       if(any(remove_stmt, node)) {
         // find parent scope, update to reflect mapping
-        // 
+        //
         if(node.type !== 'precision' && !mappings[node.token.data]) {
           throw new Error('required to match '+node.token.data)
         }
 
         var current = node
-          
+
         while(current && !current.scope) current = current.parent
 
         // redefined!
         current.scope[node.token.data] = mappings[node.token.data]
         if(node.type === 'precision') {
-          node.parent.ignore = true       
+          node.parent.ignore = true
         } else {
           node.parent.parent.parent.ignore = true
         }
@@ -152,8 +176,7 @@ function glslify(path, module_id, mappings, define_in_parent_scope, registry, co
         return ready()
       }
 
-
-      glslify(module_path, new_module_id, bits, define, registry, counter)
+      glslify(module_path, false, base, new_module_id, bits, define, registry, counter)
         .on('data', function(d) { if(d.parent) stream.emit('data', d) })
         .on('close', function() { ready() })
 
@@ -214,7 +237,7 @@ function locate_module(current_path, module_name, ready) {
     if(Path.extname(main_file) !== '.glsl')
       main_file += '.glsl'
 
-    return ready(null, Path.join(node_modules, main_file)) 
+    return ready(null, Path.join(node_modules, main_file))
   }
 
   if(dirname === '/') return ready(new Error('could not find package `'+module_name+'`'))
