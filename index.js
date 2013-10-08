@@ -1,8 +1,7 @@
-module.exports = function(path, input_stream) { return glslify(path, !!input_stream) }
-
 var combine = require('stream-combiner')
   , commondir = require('commondir')
   , wrap = require('wrap-stream')
+  , resolve = require('resolve')
   , through = require('through')
 
 var Path = require('path')
@@ -26,7 +25,29 @@ var remove_stmt = [
 
 var shortest = require('shortest')
 
-function glslify(path, is_input, base, module_id, mappings, define_in_parent_scope, registry, counter) {
+module.exports = createStream
+module.exports.resolve = locate_module
+
+function createStream(path, options) {
+  options = options || {}
+
+  var transforms = options.transform || []
+  var cwd = options.cwd || Path.dirname(path)
+
+  transforms = Array.isArray(transforms) ? transforms : [transforms]
+  transforms = transforms.map(function(transform) {
+    if(typeof transform !== 'string') return transform
+    return require(resolve.sync(transform, {
+      basedir: cwd
+    }))
+  })
+
+  return glslify(path, !!options.is_input, {
+    transform: transforms
+  })
+}
+
+function glslify(path, is_input, options, base, module_id, mappings, define_in_parent_scope, registry, counter) {
   // "should mangle" and "should remove storagedecl" are implied by presence of mappings
   module_id = module_id || '.'
   base = base || Path.dirname(path)
@@ -36,33 +57,26 @@ function glslify(path, is_input, base, module_id, mappings, define_in_parent_sco
     , this_level = Object.create(null)
     , parser_stream = parser()
     , token_stream = tokenizer()
+    , transforms = options.transform
     , common = commondir([base, Path.dirname(path)])
     , in_node_modules = path.replace(common, '').indexOf('node_modules') !== -1
-    , prefix = ''
-    , suffix = ''
 
   mappings = mappings || {}
   registry = registry || {}
   counter = counter || shortest()
 
-  var input_stream = is_input
+  var input_stream = options.is_input
     ? through()
     : fs.createReadStream(path)
 
-  if(module_id === '.') {
-    prefix += '#define GLSLIFY 1\n\n\n'
-  } else {
-    suffix += '#pragma glslify_file close\n'
-    prefix += '#pragma glslify_file start'
-    if(in_node_modules) {
-      prefix += ' module'
-    }
-    prefix += '\n'
-  }
+  var prefix = module_id === '.'
+    ? '#define GLSLIFY 1\n\n\n'
+    : ''
 
   var output_stream = combine(
       input_stream
-    , wrap(prefix, suffix)
+    , transform(path, in_node_modules, transforms)
+    , wrap(prefix)
     , token_stream
     , parser_stream
     , stream
@@ -176,7 +190,7 @@ function glslify(path, is_input, base, module_id, mappings, define_in_parent_sco
         return ready()
       }
 
-      glslify(module_path, false, base, new_module_id, bits, define, registry, counter)
+      glslify(module_path, false, options, base, new_module_id, bits, define, registry, counter)
         .on('data', function(d) { if(d.parent) stream.emit('data', d) })
         .on('close', function() { ready() })
 
@@ -246,6 +260,15 @@ function locate_module(current_path, module_name, ready) {
 
   return locate_module(dirname, module_name, ready)
 
+}
+
+function transform(file, node_module, transforms) {
+  if(node_module || !transforms.length) return through()
+  var streams = []
+  for(var i = 0, previous, l = transforms.length; i < l; i++) {
+    streams[i] = transforms[i](file)
+  }
+  return combine.apply(null, streams)
 }
 
 function relative_module(current_path, module_name, ready) {
