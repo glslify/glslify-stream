@@ -42,7 +42,7 @@ function createStream(path, options) {
     }))
   })
 
-  return glslify(path, !!options.is_input, {
+  return glslify(path, !!options.input, {
     transform: transforms
   })
 }
@@ -65,22 +65,22 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
   registry = registry || {}
   counter = counter || shortest()
 
-  var input_stream = options.is_input
-    ? through()
-    : fs.createReadStream(path)
-
   var prefix = module_id === '.'
     ? '#define GLSLIFY 1\n\n\n'
     : ''
 
   var output_stream = combine(
-      input_stream
-    , transform(path, in_node_modules, transforms)
+      transform(path, in_node_modules, transforms)
     , wrap(prefix)
     , token_stream
     , parser_stream
     , stream
   )
+
+  if(!is_input) {
+    fs.createReadStream(path)
+      .pipe(output_stream)
+  }
 
   return output_stream
 
