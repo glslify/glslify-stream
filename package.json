@@ -9,9 +9,15 @@
     "glsl-parser": "~0.0.4",
     "glsl-tokenizer": "~0.0.8",
     "shortest": "~0.0.0",
-    "through": "~1.1.2"
+    "through": "~1.1.2",
+    "commondir": "0.0.1",
+    "stream-combiner": "0.0.2",
+    "resolve": "~0.5.1",
+    "wrap-stream": "0.0.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "glsl-deparser": "0.0.2"
+  },
   "scripts": {
     "test": "node test/index.js"
   },
