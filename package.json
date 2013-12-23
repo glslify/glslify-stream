@@ -1,6 +1,6 @@
 {
   "name": "glslify-stream",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "create a readable stream of glsl ast nodes that produce a module system",
   "main": "index.js",
   "dependencies": {
