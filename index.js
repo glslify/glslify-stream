@@ -1,7 +1,8 @@
 var combine = require('stream-combiner')
+  , glslResolve = require('glsl-resolve')
+  , nodeResolve = require('resolve')
   , commondir = require('commondir')
   , wrap = require('wrap-stream')
-  , resolve = require('resolve')
   , through = require('through')
 
 var Path = require('path')
@@ -37,7 +38,7 @@ function createStream(path, options) {
   transforms = Array.isArray(transforms) ? transforms : [transforms]
   transforms = transforms.map(function(transform) {
     if(typeof transform !== 'string') return transform
-    return require(resolve.sync(transform, {
+    return require(nodeResolve.sync(transform, {
       basedir: cwd
     }))
   })
@@ -222,44 +223,9 @@ function any(x, n) {
 }
 
 function locate_module(current_path, module_name, ready) {
-  if(module_name[0] === '.') return relative_module(current_path, module_name, ready)
-  if(module_name[0] === '/') return ready(null, module_name)
-
-  var dirname = Path.dirname(current_path)
-    , bits = module_name.split(Path.sep)
-
-  module_name = bits[0]
-
-  var node_modules = Path.join(dirname, 'node_modules', module_name)
-    , package_json
-    , main_file
-
-  if(fs.existsSync(node_modules)) {
-    // read the package.json, find the "glslify", "main", or assume main == "index.glsl"
-    try {
-      package_json = fs.readFileSync(Path.join(node_modules, 'package.json'), 'utf8')
-      package_json = JSON.parse(package_json)
-    } catch(e) {
-      package_json = {main: './index.glsl'}
-    }
-
-    if(bits.length > 1) {
-      package_json.glslify = Path.join.apply(Path, ['.'].concat(bits.slice(1)))
-    }
-    main_file = package_json.glslify || package_json.main || './index.glsl'
-
-    if(Path.extname(main_file) !== '.glsl')
-      main_file += '.glsl'
-
-    return ready(null, Path.join(node_modules, main_file))
-  }
-
-  if(dirname === '/') return ready(new Error('could not find package `'+module_name+'`'))
-
-  dirname = Path.dirname(current_path)
-
-  return locate_module(dirname, module_name, ready)
-
+  return glslResolve(module_name, {
+    basedir: Path.dirname(current_path)
+  }, ready)
 }
 
 function transform(file, node_module, transforms) {
@@ -269,11 +235,4 @@ function transform(file, node_module, transforms) {
     streams[i] = transforms[i](file)
   }
   return combine.apply(null, streams)
-}
-
-function relative_module(current_path, module_name, ready) {
-  var dirname = Path.dirname(current_path)
-    , module_path = Path.resolve(Path.join(dirname, module_name))
-
-  return ready(null, module_path+'.glsl')
 }
