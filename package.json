@@ -6,7 +6,7 @@
   "dependencies": {
     "cssauron": "~0.0.2",
     "cssauron-glsl": "~0.0.0",
-    "glsl-parser": "~0.0.4",
+    "glsl-parser": "~0.0.6",
     "glsl-tokenizer": "~0.0.8",
     "shortest": "~0.0.0",
     "through": "~1.1.2",
