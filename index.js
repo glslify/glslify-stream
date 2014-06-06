@@ -44,7 +44,9 @@ function createStream(path, options) {
   })
 
   return glslify(path, !!options.input, {
-    transform: transforms
+      transform: transforms
+    , resolve: options.resolve
+    , read: options.read
   })
 }
 
@@ -61,6 +63,8 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
     , transforms = options.transform
     , common = commondir([base, Path.dirname(path)])
     , in_node_modules = path.replace(common, '').indexOf('node_modules') !== -1
+    , createReadStream = options.read || fs.createReadStream
+    , resolver = options.resolve || locate_module
 
   mappings = mappings || {}
   registry = registry || {}
@@ -79,9 +83,13 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
   )
 
   if(!is_input) {
-    fs.createReadStream(path)
+    createReadStream(path)
       .pipe(output_stream)
   }
+
+  global.process.nextTick(function() {
+    output_stream.emit('file', path)
+  })
 
   return output_stream
 
@@ -180,7 +188,7 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
       return l
     }, Object.create(mappings))
 
-    locate_module(path, module_name, function(err, module_path) {
+    resolver(path, module_name, function(err, module_path) {
       if(err) throw err
 
       var new_module_id = counter()
