@@ -2,6 +2,7 @@ var combine = require('stream-combiner')
   , glslResolve = require('glsl-resolve')
   , nodeResolve = require('resolve')
   , commondir = require('commondir')
+  , emit = require('emit-function')
   , wrap = require('wrap-stream')
   , through = require('through')
 
@@ -201,6 +202,7 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
 
       glslify(module_path, false, options, base, new_module_id, bits, define, registry, counter)
         .on('data', function(d) { if(d.parent) stream.emit('data', d) })
+        .on('file', emit(output_stream, 'file'))
         .on('close', function() { ready() })
 
       function define(value) {

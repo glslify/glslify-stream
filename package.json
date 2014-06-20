@@ -4,16 +4,17 @@
   "description": "create a readable stream of glsl ast nodes that produce a module system",
   "main": "index.js",
   "dependencies": {
+    "commondir": "0.0.1",
     "cssauron": "~0.0.2",
     "cssauron-glsl": "~0.0.0",
+    "emit-function": "0.0.2",
     "glsl-parser": "~0.0.6",
-    "glsl-tokenizer": "~0.0.8",
-    "shortest": "~0.0.0",
-    "through": "~1.1.2",
-    "commondir": "0.0.1",
-    "stream-combiner": "0.0.2",
-    "resolve": "~0.5.1",
     "glsl-resolve": "0.0.1",
+    "glsl-tokenizer": "~0.0.8",
+    "resolve": "~0.5.1",
+    "shortest": "~0.0.0",
+    "stream-combiner": "0.0.2",
+    "through": "~1.1.2",
     "wrap-stream": "0.0.0"
   },
   "devDependencies": {
