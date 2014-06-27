@@ -203,6 +203,7 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
       glslify(module_path, false, options, base, new_module_id, bits, define, registry, counter)
         .on('data', function(d) { if(d.parent) stream.emit('data', d) })
         .on('file', emit(output_stream, 'file'))
+        .on('error', emit(output_stream, 'error'))
         .on('close', function() { ready() })
 
       function define(value) {
