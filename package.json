@@ -8,7 +8,7 @@
     "cssauron": "~0.0.2",
     "cssauron-glsl": "~0.0.0",
     "emit-function": "0.0.2",
-    "glsl-parser": "~0.0.6",
+    "glsl-parser": "^1.0.0",
     "glsl-resolve": "0.0.1",
     "glsl-tokenizer": "~0.0.8",
     "resolve": "~0.5.1",
