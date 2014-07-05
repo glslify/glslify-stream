@@ -10,11 +10,11 @@
     "emit-function": "0.0.2",
     "glsl-parser": "^1.0.0",
     "glsl-resolve": "0.0.1",
-    "glsl-tokenizer": "~0.0.8",
+    "glsl-tokenizer": "^1.0.0",
     "resolve": "~0.5.1",
     "shortest": "~0.0.0",
     "stream-combiner": "0.0.2",
-    "through": "~1.1.2",
+    "through": "^2.3.4",
     "wrap-stream": "0.0.0"
   },
   "devDependencies": {
@@ -34,6 +34,10 @@
     "system",
     "stream"
   ],
-  "author": "Chris Dickinson <chris@neversaw.us>",
+  "authors": [
+    "Hugh Kennedy <hughskennedy@gmail.com> (http://hughsk.io/)",
+    "Mikola Lysenko <mikolalysenko@gmail.com> (http://0fps.net)",
+    "Chris Dickinson <chris@neversaw.us> (http://neversaw.us)"
+  ],
   "license": "MIT"
 }
