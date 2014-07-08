@@ -7,6 +7,7 @@ var combine = require('stream-combiner')
   , through = require('through')
 
 var Path = require('path')
+  , util = require('util')
   , fs = require('fs')
 
 
@@ -51,13 +52,13 @@ function createStream(path, options) {
   })
 }
 
-function glslify(path, is_input, options, base, module_id, mappings, define_in_parent_scope, registry, counter) {
+function glslify(path, is_input, options, base, module_id, mappings, define_in_parent_scope, registry, counter, parent_info) {
   // "should mangle" and "should remove storagedecl" are implied by presence of mappings
   module_id = module_id || '.'
   base = base || Path.dirname(path)
 
   var is_root = !mappings
-    , stream = through(process)
+    , stream = through(processNode)
     , this_level = Object.create(null)
     , parser_stream = parser()
     , token_stream = tokenizer()
@@ -72,14 +73,14 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
   counter = counter || shortest()
 
   var prefix = module_id === '.'
-    ? '#define GLSLIFY 1\n\n\n'
+    ? '#define GLSLIFY 1\n'
     : ''
 
   var output_stream = combine(
       transform(path, in_node_modules, transforms)
     , wrap(prefix)
     , token_stream
-    , parser_stream
+    , decorate_errors(parser_stream)
     , stream
   )
 
@@ -88,13 +89,26 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
       .pipe(output_stream)
   }
 
-  global.process.nextTick(function() {
+  process.nextTick(function() {
     output_stream.emit('file', path)
   })
 
   return output_stream
 
-  function process(node) {
+  function decorate_errors(inner) {
+    var stream = through(inner.write.bind(inner), inner.end.bind(inner))
+
+    inner.on('data', stream.queue)
+
+    inner.on('error', function(err) {
+      err.file = path
+      stream.emit('error', err)
+    })
+
+    return stream
+  }
+
+  function processNode(node) {
     if(node.ignore) return
 
     if(node.type === 'preprocessor' && /#pragma glslify:/.test(node.token.data)) {
@@ -122,7 +136,18 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
         // find parent scope, update to reflect mapping
         //
         if(node.type !== 'precision' && !mappings[node.token.data]) {
-          throw new Error('required to match '+node.token.data)
+          throw new Error(
+              util.format(
+                'must map %j in require call at %s:%s:%s (defined at %s:%s:%s)'
+              , node.token.data
+              , parent_info.path.replace(base + Path.sep, '')
+              , parent_info.token.line - (parent_info.id === '.' ? 1 : 0)
+              , parent_info.token.column
+              , path.replace(base + Path.sep, '')
+              , node.token.line
+              , node.token.column
+            )
+          )
         }
 
         var current = node
@@ -181,6 +206,15 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
       var token_stream = tokenizer()
         , sub_parser_stream = token_stream.pipe(parser())
 
+      // XXX: this looks async, but *do not be fooled*,
+      // herein lies zalgo.
+      sub_parser_stream.on('error', function(err) {
+        err.line = node.token.line
+        err.column = node.token.column
+
+        throw err
+      })
+
       sub_parser_stream.scope(parser_stream.scope())
       token_stream.write(r[1])
 
@@ -200,7 +234,8 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
         return ready()
       }
 
-      glslify(module_path, false, options, base, new_module_id, bits, define, registry, counter)
+
+      glslify(module_path, false, options, base, new_module_id, bits, define, registry, counter, {path: path, token: node.token, id: module_id})
         .on('data', function(d) { if(d.parent) stream.emit('data', d) })
         .on('file', emit(output_stream, 'file'))
         .on('error', emit(output_stream, 'error'))
