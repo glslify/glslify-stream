@@ -96,7 +96,10 @@ function glslify(path, is_input, options, base, module_id, mappings, define_in_p
   return output_stream
 
   function decorate_errors(inner) {
-    var stream = through(inner.write.bind(inner), inner.end.bind(inner))
+    var stream = through(inner.write.bind(inner), function() {
+      this.queue(null)
+      inner.end()
+    })
 
     inner.on('data', stream.queue)
 
